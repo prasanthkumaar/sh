@@ -9,6 +9,8 @@
     "build": "pnpm --filter @sh/mcp-server build",
     "dev": "pnpm --filter @sh/mcp-server dev",
     "dev:1password": "op run --env-file=.env.schema -- pnpm dev",
+    "prototype:tiger-read:paper": "pnpm --filter @sh/mcp-server prototype:tiger-read:paper",
+    "prototype:tiger-read:verify": "pnpm --filter @sh/mcp-server prototype:tiger-read:verify",
     "test": "pnpm --filter @sh/mcp-server test",
     "type-check": "pnpm --filter @sh/mcp-server type-check"
   }

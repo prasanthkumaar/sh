@@ -6,6 +6,8 @@
   "scripts": {
     "build": "next build",
     "dev": "next dev --hostname localhost",
+    "prototype:tiger-read:paper": "tsx prototypes/tiger-read/read-paper-account.ts",
+    "prototype:tiger-read:verify": "tsx prototypes/tiger-read/verify-read-gate.ts",
     "start": "next start --hostname localhost",
     "test": "tsx --test test/*.test.ts",
     "type-check": "tsc --noEmit"
@@ -14,6 +16,7 @@
     "@clerk/mcp-tools": "^0.6.0",
     "@clerk/nextjs": "^7.7.6",
     "@modelcontextprotocol/server": "^2.0.0",
+    "@tigeropenapi/tigeropen": "0.5.4",
     "mcp-handler": "^2.0.0",
     "next": "^15.2.6",
     "react": "^19.1.0",
