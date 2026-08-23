@@ -10,6 +10,7 @@
     "dev": "pnpm --filter @sh/mcp-server dev",
     "dev:1password": "op run --env-file=.env.schema -- pnpm dev",
     "test": "pnpm --filter @sh/mcp-server test",
+    "tiger:paper-smoke": "pnpm --silent --filter @sh/mcp-server tiger:paper-smoke",
     "type-check": "pnpm --filter @sh/mcp-server type-check"
   }
 }

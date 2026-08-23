@@ -5,7 +5,10 @@ import {
   TradeClient,
 } from "@tigeropenapi/tigeropen";
 
-import { ReviewedTigerReadClient } from "./read-gate";
+import {
+  ReviewedTigerReadClient,
+  type TigerReadLogger,
+} from "./read-gate";
 
 const REQUIRED_TIGER_ENVIRONMENT_NAMES = [
   "TIGER_ID",
@@ -55,6 +58,7 @@ function readSelectedTigerConfiguration(
 /** Creates the credential-holding client after checking for SDK overrides. */
 export function createReviewedTigerReadClient(
   environment: TigerEnvironment = process.env,
+  logger?: TigerReadLogger,
 ) {
   const selected = readSelectedTigerConfiguration(environment);
   const config = createClientConfig({
@@ -77,7 +81,7 @@ export function createReviewedTigerReadClient(
   }
 
   const tradeClient = TradeClient.fromConfig(config, selected.account);
-  return new ReviewedTigerReadClient(tradeClient);
+  return new ReviewedTigerReadClient(tradeClient, logger);
 }
 
 let reviewedTigerReadClient: ReviewedTigerReadClient | undefined;

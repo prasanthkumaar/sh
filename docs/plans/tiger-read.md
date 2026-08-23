@@ -281,7 +281,7 @@ Complete when `pnpm type-check`, `pnpm test`, and `pnpm build` pass with no Tige
 Use an interactive terminal because 1Password requires authorisation:
 
 ```sh
-op run --env-file=.env.schema -- pnpm tiger:paper-smoke
+op run --env-file=.env.schema -- pnpm --silent tiger:paper-smoke
 ```
 
 The smoke runner must first call `getManagedAccounts` and stop unless the configured account reports `PAPER`. Then call `getPrimeAssets`, `getPositions` for `STK`, `OPT`, and `FUT`, and `getFilledOrders` with an explicit date range. Print only method name, success/failure, response shape, and item count.

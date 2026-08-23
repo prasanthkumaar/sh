@@ -33,6 +33,8 @@ export const TIGER_READ_METHODS = [
   "getOptionExerciseRecords",
 ] as const;
 
+export type TigerReadMethod = (typeof TIGER_READ_METHODS)[number];
+
 export const TIGER_WRITE_METHODS = [
   "placeOrder",
   "modifyOrder",
@@ -77,18 +79,30 @@ const SERVER_CONTROLLED_FIELDS = new Set([
   "quoteServerUrl",
 ]);
 
-type TigerReadRequest = {
+export type TigerReadRequest = {
   method?: unknown;
   args?: unknown;
 };
 
+export type TigerReadLogEntry = {
+  method: string;
+  requestId: string;
+  elapsedTimeMs: number;
+  outcome: "success" | "failure";
+};
+
+export type TigerReadLogger = (entry: TigerReadLogEntry) => void;
+
+const defaultTigerReadLogger: TigerReadLogger = (entry) => console.info(entry);
+
 function logReviewedTigerRead(
+  logger: TigerReadLogger,
   method: string,
   requestId: string,
   startedAt: number,
   outcome: "success" | "failure",
 ) {
-  console.info({
+  logger({
     method,
     requestId,
     elapsedTimeMs: Math.round(performance.now() - startedAt),
@@ -127,7 +141,10 @@ function assertSafeJsonValue(value: unknown): void {
 
 /** Validates and delegates only methods reviewed for the pinned Tiger SDK. */
 export class ReviewedTigerReadClient {
-  constructor(private readonly tradeClient: TradeClient) {}
+  constructor(
+    private readonly tradeClient: TradeClient,
+    private readonly logger: TigerReadLogger = defaultTigerReadLogger,
+  ) {}
 
   async performReviewedRead(request: TigerReadRequest): Promise<unknown> {
     if (
@@ -156,10 +173,22 @@ export class ReviewedTigerReadClient {
         this.tradeClient,
         args,
       )) as unknown;
-      logReviewedTigerRead(request.method, requestId, startedAt, "success");
+      logReviewedTigerRead(
+        this.logger,
+        request.method,
+        requestId,
+        startedAt,
+        "success",
+      );
       return result;
     } catch (error) {
-      logReviewedTigerRead(request.method, requestId, startedAt, "failure");
+      logReviewedTigerRead(
+        this.logger,
+        request.method,
+        requestId,
+        startedAt,
+        "failure",
+      );
       throw error;
     }
   }
