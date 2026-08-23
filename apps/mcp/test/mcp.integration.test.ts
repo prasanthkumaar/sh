@@ -13,6 +13,7 @@ import {
   StreamableHTTPClientTransport,
 } from "@modelcontextprotocol/client";
 import { withMcpAuth } from "mcp-handler";
+import { TigerError, type TradeClient } from "@tigeropenapi/tigeropen";
 
 import {
   GET as getAuthorizationServerMetadata,
@@ -23,6 +24,8 @@ import {
   OPTIONS as optionsProtectedResourceMetadata,
 } from "../app/.well-known/oauth-protected-resource/mcp/route";
 import { createMcpHandler } from "../src/mcp/server";
+import { ReviewedTigerReadClient } from "../src/mcp/tiger/read-gate";
+import { TIGER_READ_CLIENT_URI } from "../src/mcp/tiger/read-resource";
 
 const host = "127.0.0.1";
 const acceptedAccessToken = "accepted-clerk-oauth-token";
@@ -95,8 +98,30 @@ async function sendWebResponse(
 }
 
 async function startApplication(): Promise<StartedApplication> {
+  const controlledTradeClient = Object.create(null) as TradeClient;
+  Object.defineProperties(controlledTradeClient, {
+    getPositions: {
+      value: function (this: TradeClient, request?: unknown) {
+        assert.equal(this, controlledTradeClient);
+        return [{ responseShape: "positions", request }];
+      },
+    },
+    getPrimeAssets: {
+      value: () => undefined,
+    },
+    getAssets: {
+      value: () => {
+        throw new TigerError(5, "controlled safe Tiger message");
+      },
+    },
+  });
+  const reviewedTigerReadClient = new ReviewedTigerReadClient(
+    controlledTradeClient,
+  );
   const mcpHandler = withMcpAuth(
-    createMcpHandler(),
+    createMcpHandler({
+      getTigerReadClient: () => reviewedTigerReadClient,
+    }),
     verifyControlledClerkToken,
     {
       required: true,
@@ -239,14 +264,23 @@ test("a rejected Clerk token cannot enter the MCP server", async () => {
   );
 });
 
-test("accepted Clerk authentication can discover and invoke the echo tool", async () => {
+test("accepted Clerk authentication discovers the bounded tool surface", async () => {
   assert.ok(client);
 
   const { tools } = await client.listTools();
   assert.deepEqual(
     tools.map(({ name }) => name),
-    ["echo"],
+    ["echo", "tiger_read"],
   );
+
+  const tigerReadTool = tools.find(({ name }) => name === "tiger_read");
+  assert.ok(tigerReadTool);
+  assert.deepEqual(tigerReadTool.annotations, {
+    readOnlyHint: true,
+    destructiveHint: false,
+    idempotentHint: true,
+    openWorldHint: true,
+  });
 
   const result = await client.callTool({
     name: "echo",
@@ -258,6 +292,83 @@ test("accepted Clerk authentication can discover and invoke the echo tool", asyn
   assert.deepEqual(result.structuredContent, {
     message: "Hello from sh",
   });
+});
+
+test("tiger_read preserves safe results and converts undefined to JSON null", async () => {
+  assert.ok(client);
+
+  const positions = await client.callTool({
+    name: "tiger_read",
+    arguments: { method: "getPositions", args: [{ secType: "STK" }] },
+  });
+  assert.equal(positions.isError, undefined);
+  assert.deepEqual(positions.structuredContent, {
+    result: [
+      {
+        responseShape: "positions",
+        request: { secType: "STK" },
+      },
+    ],
+  });
+
+  const primeAssets = await client.callTool({
+    name: "tiger_read",
+    arguments: { method: "getPrimeAssets" },
+  });
+  assert.deepEqual(primeAssets.structuredContent, { result: null });
+});
+
+test("tiger_read rejects invalid input and server-controlled fields", async () => {
+  assert.ok(client);
+
+  for (const arguments_ of [
+    { method: "placeOrder", args: [] },
+    { method: "getPositions", args: "not-an-array" },
+    { method: "getPositions", args: [], extra: true },
+    {
+      method: "getPositions",
+      args: [{ filter: { account: "must-not-be-reflected" } }],
+    },
+  ]) {
+    const result = await client.callTool({
+      name: "tiger_read",
+      arguments: arguments_,
+    });
+    assert.equal(result.isError, true);
+    assert.doesNotMatch(JSON.stringify(result), /must-not-be-reflected/);
+  }
+});
+
+test("tiger_read returns bounded Tiger errors without stack traces", async () => {
+  assert.ok(client);
+
+  const result = await client.callTool({
+    name: "tiger_read",
+    arguments: { method: "getAssets" },
+  });
+  assert.equal(result.isError, true);
+  assert.match(JSON.stringify(result), /Tiger rate_limit error \(5\)/);
+  assert.doesNotMatch(JSON.stringify(result), /controlled safe Tiger message/);
+  assert.doesNotMatch(JSON.stringify(result), /\bat\s+.*\.ts:/);
+});
+
+test("the Tiger declaration is discoverable without loading credentials", async () => {
+  assert.ok(client);
+
+  const { resources } = await client.listResources();
+  assert.deepEqual(
+    resources.map(({ uri }) => uri),
+    [TIGER_READ_CLIENT_URI],
+  );
+  const resource = await client.readResource({ uri: TIGER_READ_CLIENT_URI });
+  assert.equal(resource.contents.length, 1);
+  const declaration = resource.contents[0];
+  assert.ok(declaration && "text" in declaration);
+  assert.equal(declaration.mimeType, "text/typescript");
+  assert.match(declaration.text, /interface TigerReadClient/);
+  assert.match(declaration.text, /Query all historical orders/);
+  assert.match(declaration.text, /milliseconds since the Unix epoch/);
+  assert.match(declaration.text, /Exercise or Expire/);
 });
 
 test("the published schema rejects invalid echo input over HTTP", async () => {
