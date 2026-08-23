@@ -4,7 +4,7 @@ Researched on 21 August 2026. This note uses Tiger's documentation and source re
 
 ## Short answer
 
-The tool is feasible in this Node and TypeScript repository. Tiger now publishes an official TypeScript SDK, `@tigeropenapi/tigeropen` version 0.5.5, with Node 16 or newer declared in its package metadata. This repository already requires Node 20. The Tiger package exports typed clients and response models from its root entry point. [TypeScript SDK package](https://github.com/tigerfintech/openapi-typescript-sdk/blob/main/package.json#L1-L20) [TypeScript SDK exports](https://github.com/tigerfintech/openapi-typescript-sdk/blob/main/src/index.ts#L21-L67)
+The tool is feasible in this Node and TypeScript repository. Tiger publishes the official TypeScript SDK `@tigeropenapi/tigeropen`, with Node 16 or newer declared in its package metadata. GitHub contains source release 0.5.5, but npm published only 0.5.4 when the prototype installed the package on 23 August 2026. The 0.5.5 changelog changes SDK-version reporting, not the reviewed method surface, so implementation should pin installable package 0.5.4 until a later version is separately reviewed. This repository already requires Node 20. The Tiger package exports typed clients and response models from its root entry point. [TypeScript SDK package](https://github.com/tigerfintech/openapi-typescript-sdk/blob/main/package.json#L1-L20) [TypeScript SDK exports](https://github.com/tigerfintech/openapi-typescript-sdk/blob/main/src/index.ts#L21-L67) [TypeScript SDK changelog](https://github.com/tigerfintech/openapi-typescript-sdk/blob/main/CHANGELOG.md)
 
 Tiger does not document a per-method or read-only scope for an individual developer credential. The documented individual setup yields a Tiger ID, account number and RSA private key, with an optional IP allowlist. The SDK configuration has no operation-scope field. This is a documented-absence finding, not proof that Tiger has no private or newly added portal control. [Tiger developer setup](https://quant.itigerup.com/openapi/en/python/quickStart/prepare.html#registered-developer-information) [TypeScript client configuration](https://github.com/tigerfintech/openapi-typescript-sdk/blob/main/src/config/client-config.ts#L42-L96)
 
@@ -51,7 +51,7 @@ There is one TypeScript SDK mismatch to test. Tiger's API documentation describe
 
 ## Complete current TypeScript TradeClient read catalogue
 
-This section audits every public method in the official TypeScript `TradeClient` at package version 0.5.5. The source snapshot is Tiger commit [`b22802ad`](https://github.com/tigerfintech/openapi-typescript-sdk/tree/b22802ad82552e5464825e90074c4be1cf8b0ab3), dated 4 August 2026. Method names and signed wire names come from `trade-client.ts`; input fields come from `trade-requests.ts` and `order.ts`. [TradeClient source](https://github.com/tigerfintech/openapi-typescript-sdk/blob/b22802ad82552e5464825e90074c4be1cf8b0ab3/src/trade/trade-client.ts) [Trade request types](https://github.com/tigerfintech/openapi-typescript-sdk/blob/b22802ad82552e5464825e90074c4be1cf8b0ab3/src/model/trade-requests.ts) [Order request type](https://github.com/tigerfintech/openapi-typescript-sdk/blob/b22802ad82552e5464825e90074c4be1cf8b0ab3/src/model/order.ts#L81-L187)
+This section audits every public method in the official TypeScript `TradeClient` at GitHub source version 0.5.5 and was checked against the installable npm package 0.5.4 during the paper-account prototype. The source snapshot is Tiger commit [`b22802ad`](https://github.com/tigerfintech/openapi-typescript-sdk/tree/b22802ad82552e5464825e90074c4be1cf8b0ab3), dated 4 August 2026. Method names and signed wire names come from `trade-client.ts`; input fields come from `trade-requests.ts` and `order.ts`. [TradeClient source](https://github.com/tigerfintech/openapi-typescript-sdk/blob/b22802ad82552e5464825e90074c4be1cf8b0ab3/src/trade/trade-client.ts) [Trade request types](https://github.com/tigerfintech/openapi-typescript-sdk/blob/b22802ad82552e5464825e90074c4be1cf8b0ab3/src/model/trade-requests.ts) [Order request type](https://github.com/tigerfintech/openapi-typescript-sdk/blob/b22802ad82552e5464825e90074c4be1cf8b0ab3/src/model/order.ts#L81-L187)
 
 Tiger applies base limits per Tiger ID and wire method on a rolling 60-second window. High-frequency methods allow 120 calls per minute, medium-frequency methods 60, and low-frequency methods 10. Upgraded accounts can have higher limits. `Unknown` below means Tiger's current rate-limit page does not list that signed method. [Current Tiger rate limits](https://docs-en.itigerup.com/docs/ratelimit)
 
@@ -61,7 +61,7 @@ These 21 SDK methods retrieve existing private account state or history. Tiger d
 
 Most TypeScript request objects also accept `account`, institutional `secretKey` and `lang`. They are genuine SDK inputs, but a read-only MCP contract must take the account and credential from trusted server configuration. It must not expose them as caller-controlled fields.
 
-| TypeScript method | Signed method | Inputs and filters in TypeScript 0.5.5 | Pagination | Account or permission constraint | Base limit |
+| TypeScript method | Signed method | Inputs and filters in TypeScript 0.5.4/0.5.5 | Pagination | Account or permission constraint | Base limit |
 | --- | --- | --- | --- | --- | --- |
 | `getOrders` | `orders` | Account, security type, market, symbol, start/end date, limit, brief mode, states, sort, segment, language | `pageToken` | Brief and state filters are Global-only; sort is Prime-only | 120/min |
 | `getActiveOrders` | `active_orders` | Same `OrdersRequest`, plus parent order ID | `pageToken` is typed | Trading account | 120/min |
@@ -142,7 +142,7 @@ These nine methods must remain outside the read allowlist.
 
 ## TypeScript SDK and documentation gaps
 
-The catalogue above is complete for the public methods in TypeScript SDK 0.5.5. It does not prove that every nominal read works or paginates completely. The following source and documentation gaps need paper-account prototypes:
+The catalogue above is complete for the shared public method surface in npm 0.5.4 and GitHub source 0.5.5. It does not prove that every nominal read works or paginates completely. The following source and documentation gaps need paper-account prototypes:
 
 1. `getPrimeAssets` accepts `AssetsRequest`, which lacks the documented `baseCurrency` and `consolidated` fields and instead offers Global-asset fields. [TypeScript source](https://github.com/tigerfintech/openapi-typescript-sdk/blob/main/src/trade/trade-client.ts#L282-L290) [TypeScript request](https://github.com/tigerfintech/openapi-typescript-sdk/blob/main/src/model/trade-requests.ts#L83-L91) [Documented request](https://docs-en.itigerup.com/docs/account-management#get-prime-assets-get-primepaper-trading-account-asset-information)
 2. `getAnalyticsAsset` omits the documented `currency` and institutional `subAccount` filters. More seriously, it unwraps an array of `AnalyticsAsset`, while Tiger documents a `{summary, history}` result. This is a code-level mismatch, not a live-account failure confirmed here. [TypeScript request and response path](https://github.com/tigerfintech/openapi-typescript-sdk/blob/main/src/trade/trade-client.ts#L307-L317) [TypeScript request type](https://github.com/tigerfintech/openapi-typescript-sdk/blob/main/src/model/trade-requests.ts#L110-L128) [Documented analytics response](https://docs-en.itigerup.com/docs/account-management#get_analytics_asset-get-historical-asset-analysis)
@@ -159,11 +159,11 @@ The rate page also names private server methods that TypeScript `TradeClient` do
 
 For this plan, the phrase can guarantee only:
 
-- every non-mutating private-account method publicly implemented by the exact pinned TypeScript SDK 0.5.5 has been reviewed and mapped to a fixed signed method;
+- every non-mutating private-account method publicly implemented by pinned TypeScript SDK 0.5.4 has been reviewed and mapped to a fixed signed method;
 - the 21 state/history reads and three documented previews above are the complete candidate list for that pinned client;
 - unknown methods, generic execution, token lifecycle, market data and all nine writes fail closed before signing.
 
-It cannot guarantee every private read that Tiger's server supports, correct behaviour across all licences, complete pagination where the SDK drops cursors, or future methods added after 0.5.5. Those claims require upstream SDK fixes, a direct protocol implementation reviewed method by method, or a new catalogue when the pinned SDK changes.
+It cannot guarantee every private read that Tiger's server supports, correct behaviour across all licences, complete pagination where the SDK drops cursors, or future methods added after the pinned 0.5.4 package. Those claims require upstream SDK fixes, a direct protocol implementation reviewed method by method, or a new catalogue when the pinned SDK changes.
 
 The original `read_portfolio` scope remains much smaller and easier to defend: `accounts`, `positions`, `assets` and `prime_assets`. If the product widens to one `tiger_read` tool for all account reads, its input should be a closed query enum mapped internally to the 24 distinct signed methods above. It must never accept the wire method string or raw Tiger payload.
 
