@@ -12,6 +12,7 @@ import {
   Client,
   StreamableHTTPClientTransport,
 } from "@modelcontextprotocol/client";
+import type { TradeClient } from "@tigeropenapi/tigeropen";
 import { withMcpAuth } from "mcp-handler";
 
 import {
@@ -23,6 +24,13 @@ import {
   OPTIONS as optionsProtectedResourceMetadata,
 } from "../app/.well-known/oauth-protected-resource/mcp/route";
 import { createMcpHandler } from "../src/mcp/server";
+
+type WebHandler = (request: Request) => Response | Promise<Response>;
+
+type StartedApplication = {
+  origin: string;
+  stop: () => Promise<void>;
+};
 
 const host = "127.0.0.1";
 const acceptedAccessToken = "accepted-clerk-oauth-token";
@@ -37,13 +45,10 @@ const protectedResourceMetadataPath =
 const authorizationServerMetadataPath =
   "/.well-known/oauth-authorization-server";
 const clerkPublishableKey = `pk_test_${Buffer.from("clerk.test$").toString("base64url")}`;
+const originalFetch = globalThis.fetch;
 
-type WebHandler = (request: Request) => Response | Promise<Response>;
-
-type StartedApplication = {
-  origin: string;
-  stop: () => Promise<void>;
-};
+let application: StartedApplication | undefined;
+let client: Client | undefined;
 
 function verifyControlledClerkToken(
   _request: Request,
@@ -95,8 +100,22 @@ async function sendWebResponse(
 }
 
 async function startApplication(): Promise<StartedApplication> {
+  const controlledTradeClient = Object.assign({} as TradeClient, {
+    getPositions(this: TradeClient, request?: unknown) {
+      assert.equal(this, controlledTradeClient);
+      return [{ responseShape: "positions", request }];
+    },
+    getPrimeAssets() {
+      return undefined;
+    },
+    getAssets() {
+      throw new Error("sensitive Tiger SDK message");
+    },
+  });
   const mcpHandler = withMcpAuth(
-    createMcpHandler(),
+    createMcpHandler({
+      tigerClient: controlledTradeClient,
+    }),
     verifyControlledClerkToken,
     {
       required: true,
@@ -183,19 +202,11 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function getRequestUrl(input: RequestInfo | URL) {
-  return new URL(input instanceof Request ? input.url : input);
-}
-
-const originalFetch = globalThis.fetch;
-let application: StartedApplication | undefined;
-let client: Client | undefined;
-
 before(async () => {
   process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY = clerkPublishableKey;
   process.env.CLERK_SECRET_KEY = "controlled-test-secret-key";
   globalThis.fetch = async (input, init) => {
-    const url = getRequestUrl(input);
+    const url = new URL(input instanceof Request ? input.url : input);
     if (url.href === `${clerkFrontendApi}${authorizationServerMetadataPath}`) {
       return Response.json(clerkAuthorizationServerMetadata);
     }
@@ -239,13 +250,13 @@ test("a rejected Clerk token cannot enter the MCP server", async () => {
   );
 });
 
-test("accepted Clerk authentication can discover and invoke the echo tool", async () => {
+test("accepted Clerk authentication discovers and invokes the tools", async () => {
   assert.ok(client);
 
   const { tools } = await client.listTools();
   assert.deepEqual(
     tools.map(({ name }) => name),
-    ["echo"],
+    ["echo", "tiger_read"],
   );
 
   const result = await client.callTool({
@@ -258,6 +269,53 @@ test("accepted Clerk authentication can discover and invoke the echo tool", asyn
   assert.deepEqual(result.structuredContent, {
     message: "Hello from sh",
   });
+});
+
+test("tiger_read preserves safe results and converts undefined to JSON null", async () => {
+  assert.ok(client);
+
+  const positions = await client.callTool({
+    name: "tiger_read",
+    arguments: { method: "getPositions", args: [{ secType: "STK" }] },
+  });
+  assert.equal(positions.isError, undefined);
+  assert.deepEqual(positions.structuredContent, {
+    result: [
+      {
+        responseShape: "positions",
+        request: { secType: "STK" },
+      },
+    ],
+  });
+
+  const primeAssets = await client.callTool({
+    name: "tiger_read",
+    arguments: { method: "getPrimeAssets" },
+  });
+  assert.deepEqual(primeAssets.structuredContent, { result: null });
+});
+
+test("tiger_read rejects methods outside the read allowlist", async () => {
+  assert.ok(client);
+
+  const result = await client.callTool({
+    name: "tiger_read",
+    arguments: { method: "placeOrder", args: [] },
+  });
+  assert.equal(result.isError, true);
+});
+
+test("tiger_read hides Tiger errors and stack traces", async () => {
+  assert.ok(client);
+
+  const result = await client.callTool({
+    name: "tiger_read",
+    arguments: { method: "getAssets" },
+  });
+  assert.equal(result.isError, true);
+  assert.match(JSON.stringify(result), /Tiger read request failed/);
+  assert.doesNotMatch(JSON.stringify(result), /sensitive Tiger SDK message/);
+  assert.doesNotMatch(JSON.stringify(result), /\bat\s+.*\.ts:/);
 });
 
 test("the published schema rejects invalid echo input over HTTP", async () => {
