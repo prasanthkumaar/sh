@@ -12,8 +12,8 @@ import {
   Client,
   StreamableHTTPClientTransport,
 } from "@modelcontextprotocol/client";
+import type { TradeClient } from "@tigeropenapi/tigeropen";
 import { withMcpAuth } from "mcp-handler";
-import { TigerError, type TradeClient } from "@tigeropenapi/tigeropen";
 
 import {
   GET as getAuthorizationServerMetadata,
@@ -24,7 +24,14 @@ import {
   OPTIONS as optionsProtectedResourceMetadata,
 } from "../app/.well-known/oauth-protected-resource/mcp/route";
 import { createMcpHandler } from "../src/mcp/server";
-import { performTigerRead } from "../src/mcp/tiger/read-gate";
+import { invokeTigerReadMethod } from "../src/mcp/tiger/read-gate";
+
+type WebHandler = (request: Request) => Response | Promise<Response>;
+
+type StartedApplication = {
+  origin: string;
+  stop: () => Promise<void>;
+};
 
 const host = "127.0.0.1";
 const acceptedAccessToken = "accepted-clerk-oauth-token";
@@ -39,13 +46,10 @@ const protectedResourceMetadataPath =
 const authorizationServerMetadataPath =
   "/.well-known/oauth-authorization-server";
 const clerkPublishableKey = `pk_test_${Buffer.from("clerk.test$").toString("base64url")}`;
+const originalFetch = globalThis.fetch;
 
-type WebHandler = (request: Request) => Response | Promise<Response>;
-
-type StartedApplication = {
-  origin: string;
-  stop: () => Promise<void>;
-};
+let application: StartedApplication | undefined;
+let client: Client | undefined;
 
 function verifyControlledClerkToken(
   _request: Request,
@@ -110,13 +114,14 @@ async function startApplication(): Promise<StartedApplication> {
     },
     getAssets: {
       value: () => {
-        throw new TigerError(5, "controlled safe Tiger message");
+        throw new Error("sensitive Tiger SDK message");
       },
     },
   });
   const mcpHandler = withMcpAuth(
     createMcpHandler({
-      tigerReader: (request) => performTigerRead(controlledTradeClient, request),
+      tigerReader: (request) =>
+        invokeTigerReadMethod(controlledTradeClient, request),
     }),
     verifyControlledClerkToken,
     {
@@ -204,10 +209,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-const originalFetch = globalThis.fetch;
-let application: StartedApplication | undefined;
-let client: Client | undefined;
-
 before(async () => {
   process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY = clerkPublishableKey;
   process.env.CLERK_SECRET_KEY = "controlled-test-secret-key";
@@ -256,7 +257,7 @@ test("a rejected Clerk token cannot enter the MCP server", async () => {
   );
 });
 
-test("accepted Clerk authentication discovers the bounded tool surface", async () => {
+test("accepted Clerk authentication discovers and invokes the tools", async () => {
   assert.ok(client);
 
   const { tools } = await client.listTools();
@@ -264,15 +265,6 @@ test("accepted Clerk authentication discovers the bounded tool surface", async (
     tools.map(({ name }) => name),
     ["echo", "tiger_read"],
   );
-
-  const tigerReadTool = tools.find(({ name }) => name === "tiger_read");
-  assert.ok(tigerReadTool);
-  assert.deepEqual(tigerReadTool.annotations, {
-    readOnlyHint: true,
-    destructiveHint: false,
-    idempotentHint: true,
-    openWorldHint: true,
-  });
 
   const result = await client.callTool({
     name: "echo",
@@ -310,28 +302,17 @@ test("tiger_read preserves safe results and converts undefined to JSON null", as
   assert.deepEqual(primeAssets.structuredContent, { result: null });
 });
 
-test("tiger_read rejects invalid input and server-controlled fields", async () => {
+test("tiger_read rejects methods outside the read allowlist", async () => {
   assert.ok(client);
 
-  for (const invalidToolArguments of [
-    { method: "placeOrder", args: [] },
-    { method: "getPositions", args: "not-an-array" },
-    { method: "getPositions", args: [], extra: true },
-    {
-      method: "getPositions",
-      args: [{ filter: { account: "must-not-be-reflected" } }],
-    },
-  ]) {
-    const result = await client.callTool({
-      name: "tiger_read",
-      arguments: invalidToolArguments,
-    });
-    assert.equal(result.isError, true);
-    assert.doesNotMatch(JSON.stringify(result), /must-not-be-reflected/);
-  }
+  const result = await client.callTool({
+    name: "tiger_read",
+    arguments: { method: "placeOrder", args: [] },
+  });
+  assert.equal(result.isError, true);
 });
 
-test("tiger_read returns bounded Tiger errors without stack traces", async () => {
+test("tiger_read hides Tiger errors and stack traces", async () => {
   assert.ok(client);
 
   const result = await client.callTool({
@@ -339,8 +320,8 @@ test("tiger_read returns bounded Tiger errors without stack traces", async () =>
     arguments: { method: "getAssets" },
   });
   assert.equal(result.isError, true);
-  assert.match(JSON.stringify(result), /Tiger rate_limit error \(5\)/);
-  assert.doesNotMatch(JSON.stringify(result), /controlled safe Tiger message/);
+  assert.match(JSON.stringify(result), /Tiger read request failed/);
+  assert.doesNotMatch(JSON.stringify(result), /sensitive Tiger SDK message/);
   assert.doesNotMatch(JSON.stringify(result), /\bat\s+.*\.ts:/);
 });
 

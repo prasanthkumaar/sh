@@ -1,5 +1,4 @@
 import type { McpServer } from "@modelcontextprotocol/server";
-import { TigerError } from "@tigeropenapi/tigeropen";
 import { z } from "zod";
 
 import {
@@ -26,17 +25,9 @@ const tigerReadOutputSchema = z
   })
   .strict();
 
-function toCallerVisibleError(error: unknown) {
-  if (error instanceof TigerError) {
-    return `Tiger ${error.category} error (${error.code})`;
-  }
-  return "Tiger read request was rejected";
-}
-
-/** Registers the single reviewed Tiger account-read capability. */
 export function registerTigerReadTool(
   server: McpServer,
-  tigerReader?: TigerReader,
+  injectedTigerReader?: TigerReader,
 ) {
   server.registerTool(
     "tiger_read",
@@ -55,9 +46,8 @@ export function registerTigerReadTool(
     },
     async ({ method, args }) => {
       try {
-        // Resolve inside the handler so tool discovery never loads credentials.
-        const performTigerRead = tigerReader ?? getTigerReader();
-        const result = await performTigerRead({
+        const readTiger = injectedTigerReader ?? getTigerReader();
+        const result = await readTiger({
           method,
           args,
         });
@@ -65,10 +55,10 @@ export function registerTigerReadTool(
           content: [{ type: "text", text: "Tiger read completed" }],
           structuredContent: { result: result ?? null },
         };
-      } catch (error) {
+      } catch {
         return {
           isError: true,
-          content: [{ type: "text", text: toCallerVisibleError(error) }],
+          content: [{ type: "text", text: "Tiger read request failed" }],
         };
       }
     },

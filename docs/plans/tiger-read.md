@@ -1,6 +1,6 @@
 # Tiger account-read MCP
 
-Status: implemented in [PR #25](https://github.com/prasanthkumaar/sh/pull/25)
+Status: in review in [PR #25](https://github.com/prasanthkumaar/sh/pull/25)
 
 Wayfinder map: [#17](https://github.com/prasanthkumaar/sh/issues/17)
 
@@ -8,8 +8,7 @@ Wayfinder map: [#17](https://github.com/prasanthkumaar/sh/issues/17)
 
 Add one authenticated MCP tool named `tiger_read`. It calls the non-mutating
 methods reviewed in `@tigeropenapi/tigeropen@0.5.4` while server code keeps
-writes, raw dispatch, credential operations and alternate-account access
-unreachable.
+writes, raw dispatch and credential operations unreachable.
 
 This protects against MCP callers and tool arguments. It does not protect the
 credential if arbitrary code runs inside the credential-holding server process.
@@ -49,17 +48,14 @@ method-specific arguments. The MCP does not maintain a copied SDK declaration.
 ```text
 authenticated tiger_read
   -> strict read allowlist
-  -> reject server-controlled fields
   -> configured TradeClient method
   -> Tiger SDK signing and transport
 ```
 
 Before SDK property access, the server rejects:
 
-- Every method absent from the positive read allowlist, including writes,
-  credential operations, internal helpers and future SDK methods.
-- Any argument object containing account, credential or Tiger endpoint fields,
-  including nested objects and arrays.
+Every method absent from the positive read allowlist is rejected. This includes
+writes, credential operations, internal helpers and future SDK methods.
 
 The tool never exposes `TradeClient`, `HttpClient`, configuration or credentials.
 MCP annotations describe the tool but do not enforce the boundary.
@@ -76,18 +72,15 @@ TIGER_LICENSE=op://sh/Development/TIGER_LICENSE
 ```
 
 The server reads them on the first valid Tiger call and reuses the resulting
-reader. It rejects ambient `TIGEROPEN_*` values and disables SDK token-file and
-dynamic-domain discovery.
+reader. The tool schema contains no credential configuration.
 
 ## Verification
 
 Automated tests cover:
 
 - Write and unknown methods failing before `TradeClient` access.
-- Nested account and credential fields failing before `TradeClient` access.
 - Allowed methods preserving SDK arguments, receiver binding and results.
-- Authenticated MCP discovery, invocation, input rejection and bounded errors.
-- Missing or ambient configuration failing without exposing values.
+- Authenticated MCP discovery, invocation and generic caller-safe errors.
 
 The supervised paper-account acceptance run completed on 25 August 2026. Tiger
 identified the configured account as `PAPER` before managed accounts, prime
