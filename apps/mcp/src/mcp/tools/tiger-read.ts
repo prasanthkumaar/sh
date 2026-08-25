@@ -28,7 +28,7 @@ const tigerReadOutputSchema = z
 
 export function registerTigerReadTool(
   server: McpServer,
-  injectedTigerClient?: TradeClient,
+  tigerClient?: TradeClient,
 ) {
   server.registerTool(
     "tiger_read",
@@ -47,11 +47,10 @@ export function registerTigerReadTool(
     },
     async ({ method, args }) => {
       try {
-        const tigerClient = injectedTigerClient ?? getTigerClient();
-        const result = await invokeTigerReadMethod(tigerClient, {
-          method,
-          args,
-        });
+        const result = await invokeTigerReadMethod(
+          tigerClient ?? getTigerClient(),
+          { method, args },
+        );
         return {
           content: [{ type: "text", text: "Tiger read completed" }],
           structuredContent: { result: result ?? null },
