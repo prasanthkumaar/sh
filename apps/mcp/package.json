@@ -4,8 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "prebuild": "pnpm lint",
     "build": "next build",
     "dev": "next dev --hostname localhost",
+    "lint": "oxlint src test",
     "start": "next start --hostname localhost",
     "test": "tsx --test test/*.test.ts",
     "type-check": "tsc --noEmit"
@@ -25,10 +27,11 @@
     "@modelcontextprotocol/client": "^2.0.0",
     "@types/node": "^20",
     "@types/react": "^19",
+    "oxlint": "^1.80.0",
     "tsx": "^4.20.0",
     "typescript": "^5"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=20.19.0"
   }
 }
