@@ -10,35 +10,27 @@ import {
   type TigerReadRequest,
 } from "./read-gate";
 
-const REQUIRED_TIGER_ENVIRONMENT_NAMES = [
-  "TIGER_ID",
-  "TIGER_PRIVATE_KEY_PKCS8",
-  "TIGER_ACCOUNT",
-  "TIGER_LICENSE",
-] as const;
-
 type TigerEnvironment = Readonly<Record<string, string | undefined>>;
 
-type SelectedTigerConfiguration = {
+type TigerCredentials = {
   tigerId: string;
   privateKey: string;
   account: string;
   license: string;
 };
 
-function readSelectedTigerConfiguration(
+function requireEnvironmentValue(
   environment: TigerEnvironment,
-): SelectedTigerConfiguration {
-  function readRequiredValue(
-    name: (typeof REQUIRED_TIGER_ENVIRONMENT_NAMES)[number],
-  ) {
-    const value = environment[name];
-    if (value) {
-      return value;
-    }
-    throw new Error(`Tiger configuration is incomplete: missing ${name}`);
+  name: string,
+) {
+  const value = environment[name];
+  if (value) {
+    return value;
   }
+  throw new Error(`Tiger configuration is incomplete: missing ${name}`);
+}
 
+function readTigerCredentials(environment: TigerEnvironment): TigerCredentials {
   if (
     Object.entries(environment).some(
       ([name, value]) => name.startsWith("TIGEROPEN_") && Boolean(value),
@@ -48,10 +40,13 @@ function readSelectedTigerConfiguration(
   }
 
   return {
-    tigerId: readRequiredValue("TIGER_ID"),
-    privateKey: readRequiredValue("TIGER_PRIVATE_KEY_PKCS8"),
-    account: readRequiredValue("TIGER_ACCOUNT"),
-    license: readRequiredValue("TIGER_LICENSE"),
+    tigerId: requireEnvironmentValue(environment, "TIGER_ID"),
+    privateKey: requireEnvironmentValue(
+      environment,
+      "TIGER_PRIVATE_KEY_PKCS8",
+    ),
+    account: requireEnvironmentValue(environment, "TIGER_ACCOUNT"),
+    license: requireEnvironmentValue(environment, "TIGER_LICENSE"),
   };
 }
 
@@ -59,9 +54,10 @@ function readSelectedTigerConfiguration(
 export function createTigerReader(
   environment: TigerEnvironment = process.env,
 ) {
-  const selected = readSelectedTigerConfiguration(environment);
+  const credentials = readTigerCredentials(environment);
+  // Disable the SDK's ambient properties, token-file, and dynamic-domain inputs.
   const config = createClientConfig({
-    ...selected,
+    ...credentials,
     propertiesFilePath: resolve(
       process.cwd(),
       ".sh-no-tiger-properties.properties",
@@ -69,17 +65,17 @@ export function createTigerReader(
     tokenLoader: () => "",
     enableDynamicDomain: false,
   });
-  const selectedValuesSurvived =
-    config.tigerId === selected.tigerId &&
-    config.privateKey === selected.privateKey &&
-    config.account === selected.account &&
-    config.license === selected.license;
+  const configPreservedCredentials =
+    config.tigerId === credentials.tigerId &&
+    config.privateKey === credentials.privateKey &&
+    config.account === credentials.account &&
+    config.license === credentials.license;
 
-  if (!selectedValuesSurvived) {
-    throw new Error("Tiger SDK configuration did not preserve selected values");
+  if (!configPreservedCredentials) {
+    throw new Error("Tiger SDK configuration did not preserve credentials");
   }
 
-  const tradeClient = TradeClient.fromConfig(config, selected.account);
+  const tradeClient = TradeClient.fromConfig(config, credentials.account);
   return (request: TigerReadRequest) => performTigerRead(tradeClient, request);
 }
 

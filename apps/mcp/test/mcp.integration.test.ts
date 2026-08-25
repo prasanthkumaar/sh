@@ -204,10 +204,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function getRequestUrl(input: RequestInfo | URL) {
-  return new URL(input instanceof Request ? input.url : input);
-}
-
 const originalFetch = globalThis.fetch;
 let application: StartedApplication | undefined;
 let client: Client | undefined;
@@ -216,7 +212,7 @@ before(async () => {
   process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY = clerkPublishableKey;
   process.env.CLERK_SECRET_KEY = "controlled-test-secret-key";
   globalThis.fetch = async (input, init) => {
-    const url = getRequestUrl(input);
+    const url = new URL(input instanceof Request ? input.url : input);
     if (url.href === `${clerkFrontendApi}${authorizationServerMetadataPath}`) {
       return Response.json(clerkAuthorizationServerMetadata);
     }
@@ -317,7 +313,7 @@ test("tiger_read preserves safe results and converts undefined to JSON null", as
 test("tiger_read rejects invalid input and server-controlled fields", async () => {
   assert.ok(client);
 
-  for (const arguments_ of [
+  for (const invalidToolArguments of [
     { method: "placeOrder", args: [] },
     { method: "getPositions", args: "not-an-array" },
     { method: "getPositions", args: [], extra: true },
@@ -328,7 +324,7 @@ test("tiger_read rejects invalid input and server-controlled fields", async () =
   ]) {
     const result = await client.callTool({
       name: "tiger_read",
-      arguments: arguments_,
+      arguments: invalidToolArguments,
     });
     assert.equal(result.isError, true);
     assert.doesNotMatch(JSON.stringify(result), /must-not-be-reflected/);

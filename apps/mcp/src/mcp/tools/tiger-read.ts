@@ -55,17 +55,15 @@ export function registerTigerReadTool(
     },
     async ({ method, args }) => {
       try {
-        const read = tigerReader ?? getTigerReader();
-        const result = await read({
+        // Resolve inside the handler so tool discovery never loads credentials.
+        const performTigerRead = tigerReader ?? getTigerReader();
+        const result = await performTigerRead({
           method,
           args,
         });
-        const structuredContent = {
-          result: result === undefined ? null : result,
-        };
         return {
           content: [{ type: "text", text: "Tiger read completed" }],
-          structuredContent,
+          structuredContent: { result: result ?? null },
         };
       } catch (error) {
         return {

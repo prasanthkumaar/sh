@@ -33,7 +33,7 @@ export const TIGER_READ_METHODS = [
 
 export type TigerReadMethod = (typeof TIGER_READ_METHODS)[number];
 
-const REVIEWED_TIGER_READ_METHODS = new Set<string>(TIGER_READ_METHODS);
+const TIGER_READ_METHOD_SET = new Set<string>(TIGER_READ_METHODS);
 
 const SERVER_CONTROLLED_FIELDS = new Set([
   "account",
@@ -80,7 +80,7 @@ export async function performTigerRead(
   tradeClient: TradeClient,
   request: TigerReadRequest,
 ): Promise<unknown> {
-  if (!REVIEWED_TIGER_READ_METHODS.has(request.method)) {
+  if (!TIGER_READ_METHOD_SET.has(request.method)) {
     throw new Error("Requested method is not a reviewed Tiger read");
   }
 
