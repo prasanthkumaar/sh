@@ -13,7 +13,9 @@ type TigerCredentials = {
 let cachedTigerClient: TradeClient | undefined;
 
 export function getTigerClient() {
-  cachedTigerClient ??= createTigerClient();
+  if (!cachedTigerClient) {
+    cachedTigerClient = createTigerClient();
+  }
   return cachedTigerClient;
 }
 

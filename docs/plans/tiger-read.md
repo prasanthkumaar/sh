@@ -18,7 +18,7 @@ credential if arbitrary code runs inside the credential-holding server process.
 ```ts
 type TigerReadInput = {
   method: TigerReadMethod;
-  args?: readonly unknown[];
+  args?: unknown[];
 };
 
 type TigerReadOutput = {

@@ -2,7 +2,7 @@ import type { TradeClient } from "@tigeropenapi/tigeropen";
 
 export type TigerReadRequest = {
   method: string;
-  args?: readonly unknown[];
+  args?: unknown[];
 };
 
 type TigerSdkReadMethod = (...args: unknown[]) => unknown;
@@ -38,21 +38,22 @@ export const TIGER_READ_METHODS = [
   "getOptionExerciseRecords",
 ] as const satisfies readonly (keyof TradeClient)[];
 
+type TigerReadMethod = (typeof TIGER_READ_METHODS)[number];
+
 export async function invokeTigerReadMethod(
   tradeClient: TradeClient,
   request: TigerReadRequest,
 ): Promise<unknown> {
-  const isReviewedRead = TIGER_READ_METHODS.some(
-    (reviewedMethod) => reviewedMethod === request.method,
-  );
-  if (!isReviewedRead) {
+  if (!isTigerReadMethod(request.method)) {
     throw new Error("Requested method is not a reviewed Tiger read");
   }
 
   const args = request.args ?? [];
-  const sdkReadMethod = Reflect.get(
-    tradeClient,
-    request.method,
-  ) as TigerSdkReadMethod;
-  return await Reflect.apply(sdkReadMethod, tradeClient, args);
+  return (tradeClient[request.method] as TigerSdkReadMethod)(...args);
+}
+
+function isTigerReadMethod(method: string): method is TigerReadMethod {
+  return TIGER_READ_METHODS.some(
+    (reviewedMethod) => reviewedMethod === method,
+  );
 }

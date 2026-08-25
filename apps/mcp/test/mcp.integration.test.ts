@@ -100,21 +100,16 @@ async function sendWebResponse(
 }
 
 async function startApplication(): Promise<StartedApplication> {
-  const controlledTradeClient = Object.create(null) as TradeClient;
-  Object.defineProperties(controlledTradeClient, {
-    getPositions: {
-      value: function (this: TradeClient, request?: unknown) {
-        assert.equal(this, controlledTradeClient);
-        return [{ responseShape: "positions", request }];
-      },
+  const controlledTradeClient = Object.assign({} as TradeClient, {
+    getPositions(this: TradeClient, request?: unknown) {
+      assert.equal(this, controlledTradeClient);
+      return [{ responseShape: "positions", request }];
     },
-    getPrimeAssets: {
-      value: () => undefined,
+    getPrimeAssets() {
+      return undefined;
     },
-    getAssets: {
-      value: () => {
-        throw new Error("sensitive Tiger SDK message");
-      },
+    getAssets() {
+      throw new Error("sensitive Tiger SDK message");
     },
   });
   const mcpHandler = withMcpAuth(
