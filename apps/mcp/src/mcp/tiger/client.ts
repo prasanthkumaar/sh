@@ -3,11 +3,6 @@ import {
   TradeClient,
 } from "@tigeropenapi/tigeropen";
 
-import {
-  invokeTigerReadMethod,
-  type TigerReadRequest,
-} from "./read-gate";
-
 type TigerCredentials = {
   tigerId: string;
   privateKey: string;
@@ -15,16 +10,17 @@ type TigerCredentials = {
   license: string;
 };
 
-export type TigerReader = (request: TigerReadRequest) => Promise<unknown>;
+let cachedTigerClient: TradeClient | undefined;
 
-let cachedTigerReader: TigerReader | undefined;
+export function getTigerClient() {
+  cachedTigerClient ??= createTigerClient();
+  return cachedTigerClient;
+}
 
-function requireEnvironmentValue(name: string) {
-  const value = process.env[name];
-  if (value) {
-    return value;
-  }
-  throw new Error(`Tiger configuration is incomplete: missing ${name}`);
+function createTigerClient() {
+  const credentials = loadTigerCredentials();
+  const clientConfig = createClientConfig(credentials);
+  return TradeClient.fromConfig(clientConfig, credentials.account);
 }
 
 function loadTigerCredentials(): TigerCredentials {
@@ -36,18 +32,10 @@ function loadTigerCredentials(): TigerCredentials {
   };
 }
 
-function createTigerReader(): TigerReader {
-  const credentials = loadTigerCredentials();
-  const clientConfig = createClientConfig(credentials);
-  const tradeClient = TradeClient.fromConfig(
-    clientConfig,
-    credentials.account,
-  );
-  return (request: TigerReadRequest) =>
-    invokeTigerReadMethod(tradeClient, request);
-}
-
-export function getTigerReader() {
-  cachedTigerReader ??= createTigerReader();
-  return cachedTigerReader;
+function requireEnvironmentValue(name: string) {
+  const value = process.env[name];
+  if (value) {
+    return value;
+  }
+  throw new Error(`Tiger configuration is incomplete: missing ${name}`);
 }

@@ -24,7 +24,6 @@ import {
   OPTIONS as optionsProtectedResourceMetadata,
 } from "../app/.well-known/oauth-protected-resource/mcp/route";
 import { createMcpHandler } from "../src/mcp/server";
-import { invokeTigerReadMethod } from "../src/mcp/tiger/read-gate";
 
 type WebHandler = (request: Request) => Response | Promise<Response>;
 
@@ -120,8 +119,7 @@ async function startApplication(): Promise<StartedApplication> {
   });
   const mcpHandler = withMcpAuth(
     createMcpHandler({
-      tigerReader: (request) =>
-        invokeTigerReadMethod(controlledTradeClient, request),
+      tigerClient: controlledTradeClient,
     }),
     verifyControlledClerkToken,
     {

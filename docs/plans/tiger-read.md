@@ -72,7 +72,7 @@ TIGER_LICENSE=op://sh/Development/TIGER_LICENSE
 ```
 
 The server reads them on the first valid Tiger call and reuses the resulting
-reader. The tool schema contains no credential configuration.
+client. The tool schema contains no credential configuration.
 
 ## Verification
 

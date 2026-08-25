@@ -1,11 +1,12 @@
 import type { McpServer } from "@modelcontextprotocol/server";
+import type { TradeClient } from "@tigeropenapi/tigeropen";
 import { z } from "zod";
 
+import { getTigerClient } from "../tiger/client";
 import {
-  getTigerReader,
-  type TigerReader,
-} from "../tiger/client";
-import { TIGER_READ_METHODS } from "../tiger/read-gate";
+  invokeTigerReadMethod,
+  TIGER_READ_METHODS,
+} from "../tiger/read-gate";
 
 const tigerReadInputSchema = z
   .object({
@@ -27,7 +28,7 @@ const tigerReadOutputSchema = z
 
 export function registerTigerReadTool(
   server: McpServer,
-  injectedTigerReader?: TigerReader,
+  injectedTigerClient?: TradeClient,
 ) {
   server.registerTool(
     "tiger_read",
@@ -46,8 +47,8 @@ export function registerTigerReadTool(
     },
     async ({ method, args }) => {
       try {
-        const readTiger = injectedTigerReader ?? getTigerReader();
-        const result = await readTiger({
+        const tigerClient = injectedTigerClient ?? getTigerClient();
+        const result = await invokeTigerReadMethod(tigerClient, {
           method,
           args,
         });
