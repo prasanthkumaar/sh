@@ -1,0 +1,40 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "rules": {
+    "no-restricted-globals": [
+      "error",
+      {
+        "name": "Proxy",
+        "message": "Use a plain object unless property interception is required."
+      }
+    ],
+    "no-restricted-properties": [
+      "error",
+      {
+        "object": "Reflect",
+        "property": "get",
+        "message": "Use direct property access."
+      },
+      {
+        "object": "Reflect",
+        "property": "apply",
+        "message": "Use a direct method call."
+      },
+      {
+        "object": "Object",
+        "property": "create",
+        "message": "Use an object literal unless a custom prototype is required."
+      },
+      {
+        "object": "Object",
+        "property": "defineProperty",
+        "message": "Use ordinary object properties unless descriptors are required."
+      },
+      {
+        "object": "Object",
+        "property": "defineProperties",
+        "message": "Use ordinary object properties unless descriptors are required."
+      }
+    ]
+  }
+}

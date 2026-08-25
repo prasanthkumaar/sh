@@ -3,12 +3,13 @@
   "private": true,
   "packageManager": "pnpm@10.34.5",
   "engines": {
-    "node": ">=20"
+    "node": ">=20.19.0"
   },
   "scripts": {
     "build": "pnpm --filter @sh/mcp-server build",
     "dev": "pnpm --filter @sh/mcp-server dev",
     "dev:1password": "op run --env-file=.env.schema -- pnpm dev",
+    "lint": "pnpm --filter @sh/mcp-server lint",
     "test": "pnpm --filter @sh/mcp-server test",
     "type-check": "pnpm --filter @sh/mcp-server type-check"
   }
