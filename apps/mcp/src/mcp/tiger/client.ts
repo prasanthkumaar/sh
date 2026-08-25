@@ -6,8 +6,8 @@ import {
 } from "@tigeropenapi/tigeropen";
 
 import {
-  ReviewedTigerReadClient,
-  type TigerReadLogger,
+  performTigerRead,
+  type TigerReadRequest,
 } from "./read-gate";
 
 const REQUIRED_TIGER_ENVIRONMENT_NAMES = [
@@ -56,9 +56,8 @@ function readSelectedTigerConfiguration(
 }
 
 /** Creates the credential-holding client after checking for SDK overrides. */
-export function createReviewedTigerReadClient(
+export function createTigerReader(
   environment: TigerEnvironment = process.env,
-  logger?: TigerReadLogger,
 ) {
   const selected = readSelectedTigerConfiguration(environment);
   const config = createClientConfig({
@@ -81,13 +80,15 @@ export function createReviewedTigerReadClient(
   }
 
   const tradeClient = TradeClient.fromConfig(config, selected.account);
-  return new ReviewedTigerReadClient(tradeClient, logger);
+  return (request: TigerReadRequest) => performTigerRead(tradeClient, request);
 }
 
-let reviewedTigerReadClient: ReviewedTigerReadClient | undefined;
+export type TigerReader = ReturnType<typeof createTigerReader>;
+
+let tigerReader: TigerReader | undefined;
 
 /** Loads Tiger credentials only when the first reviewed read is invoked. */
-export function getReviewedTigerReadClient() {
-  reviewedTigerReadClient ??= createReviewedTigerReadClient();
-  return reviewedTigerReadClient;
+export function getTigerReader() {
+  tigerReader ??= createTigerReader();
+  return tigerReader;
 }

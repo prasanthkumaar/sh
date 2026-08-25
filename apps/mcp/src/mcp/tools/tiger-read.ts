@@ -2,16 +2,21 @@ import type { McpServer } from "@modelcontextprotocol/server";
 import { TigerError } from "@tigeropenapi/tigeropen";
 import { z } from "zod";
 
-import { getReviewedTigerReadClient } from "../tiger/client";
 import {
-  TIGER_READ_METHODS,
-  type ReviewedTigerReadClient,
-} from "../tiger/read-gate";
+  getTigerReader,
+  type TigerReader,
+} from "../tiger/client";
+import { TIGER_READ_METHODS } from "../tiger/read-gate";
 
 const tigerReadInputSchema = z
   .object({
-    method: z.enum(TIGER_READ_METHODS),
-    args: z.array(z.json()).optional(),
+    method: z
+      .enum(TIGER_READ_METHODS)
+      .describe("A non-mutating TradeClient method from Tiger SDK 0.5.4"),
+    args: z
+      .array(z.json())
+      .optional()
+      .describe("The method's exact positional Tiger SDK arguments"),
   })
   .strict();
 
@@ -20,11 +25,6 @@ const tigerReadOutputSchema = z
     result: z.json(),
   })
   .strict();
-
-export type TigerReadClientProvider = () => Pick<
-  ReviewedTigerReadClient,
-  "performReviewedRead"
->;
 
 function toCallerVisibleError(error: unknown) {
   if (error instanceof TigerError) {
@@ -36,13 +36,14 @@ function toCallerVisibleError(error: unknown) {
 /** Registers the single reviewed Tiger account-read capability. */
 export function registerTigerReadTool(
   server: McpServer,
-  getTigerReadClient: TigerReadClientProvider = getReviewedTigerReadClient,
+  tigerReader?: TigerReader,
 ) {
   server.registerTool(
     "tiger_read",
     {
       title: "Tiger Read",
-      description: "Invoke one reviewed read on the configured Tiger account",
+      description:
+        "Call one non-mutating @tigeropenapi/tigeropen TradeClient method from version 0.5.4 on the configured account. Pass the method's exact positional SDK arguments in args.",
       inputSchema: tigerReadInputSchema,
       outputSchema: tigerReadOutputSchema,
       annotations: {
@@ -54,7 +55,8 @@ export function registerTigerReadTool(
     },
     async ({ method, args }) => {
       try {
-        const result = await getTigerReadClient().performReviewedRead({
+        const read = tigerReader ?? getTigerReader();
+        const result = await read({
           method,
           args,
         });

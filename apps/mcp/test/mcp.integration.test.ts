@@ -24,8 +24,7 @@ import {
   OPTIONS as optionsProtectedResourceMetadata,
 } from "../app/.well-known/oauth-protected-resource/mcp/route";
 import { createMcpHandler } from "../src/mcp/server";
-import { ReviewedTigerReadClient } from "../src/mcp/tiger/read-gate";
-import { TIGER_READ_CLIENT_URI } from "../src/mcp/tiger/read-resource";
+import { performTigerRead } from "../src/mcp/tiger/read-gate";
 
 const host = "127.0.0.1";
 const acceptedAccessToken = "accepted-clerk-oauth-token";
@@ -115,12 +114,9 @@ async function startApplication(): Promise<StartedApplication> {
       },
     },
   });
-  const reviewedTigerReadClient = new ReviewedTigerReadClient(
-    controlledTradeClient,
-  );
   const mcpHandler = withMcpAuth(
     createMcpHandler({
-      getTigerReadClient: () => reviewedTigerReadClient,
+      tigerReader: (request) => performTigerRead(controlledTradeClient, request),
     }),
     verifyControlledClerkToken,
     {
@@ -350,25 +346,6 @@ test("tiger_read returns bounded Tiger errors without stack traces", async () =>
   assert.match(JSON.stringify(result), /Tiger rate_limit error \(5\)/);
   assert.doesNotMatch(JSON.stringify(result), /controlled safe Tiger message/);
   assert.doesNotMatch(JSON.stringify(result), /\bat\s+.*\.ts:/);
-});
-
-test("the Tiger declaration is discoverable without loading credentials", async () => {
-  assert.ok(client);
-
-  const { resources } = await client.listResources();
-  assert.deepEqual(
-    resources.map(({ uri }) => uri),
-    [TIGER_READ_CLIENT_URI],
-  );
-  const resource = await client.readResource({ uri: TIGER_READ_CLIENT_URI });
-  assert.equal(resource.contents.length, 1);
-  const declaration = resource.contents[0];
-  assert.ok(declaration && "text" in declaration);
-  assert.equal(declaration.mimeType, "text/typescript");
-  assert.match(declaration.text, /interface TigerReadClient/);
-  assert.match(declaration.text, /Query all historical orders/);
-  assert.match(declaration.text, /milliseconds since the Unix epoch/);
-  assert.match(declaration.text, /Exercise or Expire/);
 });
 
 test("the published schema rejects invalid echo input over HTTP", async () => {

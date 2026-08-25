@@ -8,7 +8,6 @@
     "dev": "next dev --hostname localhost",
     "start": "next start --hostname localhost",
     "test": "tsx --test test/*.test.ts",
-    "tiger:paper-smoke": "tsx scripts/tiger-read-paper-smoke.ts",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {

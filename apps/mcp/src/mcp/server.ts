@@ -1,15 +1,12 @@
 import type { McpServer } from "@modelcontextprotocol/server";
 import { createMcpHandler as createMcpTransportHandler } from "mcp-handler";
 
-import { registerTigerReadResource } from "@/src/mcp/tiger/read-resource";
+import type { TigerReader } from "@/src/mcp/tiger/client";
 import { registerEchoTool } from "@/src/mcp/tools/echo";
-import {
-  registerTigerReadTool,
-  type TigerReadClientProvider,
-} from "@/src/mcp/tools/tiger-read";
+import { registerTigerReadTool } from "@/src/mcp/tools/tiger-read";
 
 type McpDependencies = {
-  getTigerReadClient?: TigerReadClientProvider;
+  tigerReader?: TigerReader;
 };
 
 /** Registers every capability exposed by the MCP server. */
@@ -18,8 +15,7 @@ export function configureMcpServer(
   dependencies: McpDependencies = {},
 ) {
   registerEchoTool(server);
-  registerTigerReadTool(server, dependencies.getTigerReadClient);
-  registerTigerReadResource(server);
+  registerTigerReadTool(server, dependencies.tigerReader);
 }
 
 /** Creates the provider-neutral MCP transport handler. */
